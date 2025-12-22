@@ -86,6 +86,18 @@ func (c *Config) ParseCmdArgs() error {
 		return fmt.Errorf("either primary or secondary command must be specified")
 	}
 
+	if primaryCmd != "" {
+		c.PrimaryCmd = command.New(primaryCmd)
+	}
+
+	if secondaryCmd != "" {
+		c.SecondaryCmd = command.New(secondaryCmd)
+	}
+
+	if tearDownCmd != "" {
+		c.TearDownCmd = command.New(tearDownCmd)
+	}
+
 	c.Files = pflag.Args()
 
 	if c.Recurse {
