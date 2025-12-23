@@ -6,12 +6,13 @@ MAIN     = ./cmd/main.go
 BIN      = ./bin
 COVEROUT = cover.out
 
-all: build
 BRANCH   := ${shell git rev-parse --abbrev-ref HEAD}
 REVCNT   := ${shell git rev-list --count $(BRANCH)}
 REVHASH  := ${shell git log -1 --format="%h"}
-LDFLAGS  := -X main.version=${BRANCH}.${REVCNT}.${REVHASH}
+LDFLAGS  := -X main.version=${BRANCH}.${REVCNT}.${REVHASH} -s
 CFLAGS   := --ldflags '${LDFLAGS}' -o $(BIN)/$(TARGET)
+
+all: build
 
 lint:
 	golangci-lint run
@@ -32,7 +33,7 @@ generate:
 	go generate ./internal/...
 
 build: clean
-	go build ${CFLAGS} $(MAIN)
+	CGO_ENABLED=0 go build ${CFLAGS} $(MAIN)
 
 build-linux: clean
 	CGO_ENABLED=0 GOOS=linux go build ${CFLAGS} -a -installsuffix cgo $(MAIN)

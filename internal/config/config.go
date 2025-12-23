@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"go-imk/internal/command"
 	"go-imk/internal/fsops"
 )
 
@@ -19,12 +18,12 @@ var (
 type Config struct {
 	Files []string
 
-	PrimaryCmd   *command.Command
-	SecondaryCmd *command.Command
-	TearDownCmd  *command.Command
+	PrimaryCmd   string
+	SecondaryCmd string
+	TearDownCmd  string
 
-	CommandDelay time.Duration
-	KillTimeout  time.Duration
+	CommandDelay    time.Duration
+	TearDownTimeout time.Duration
 
 	Recurse bool
 	OneRun  bool
@@ -58,22 +57,18 @@ func (c *Config) ParseCmdArgs() error {
 	pflag.DurationVarP(&c.CommandDelay, "threshold", "t", 0,
 		"number of seconds to skip after the last executed command (default: 0).")
 
-	pflag.DurationVarP(&c.KillTimeout, "timeout", "k", 0,
-		"timeout after which to kill the command subproces (default - do not kill).")
-
-	var primaryCmd string
-	var secondaryCmd string
-	var tearDownCmd string
-
-	pflag.StringVarP(&primaryCmd, "command", "c", "",
+	pflag.StringVarP(&c.PrimaryCmd, "command", "c", "",
 		"command to execute when file is modified.")
 
-	pflag.StringVarP(&secondaryCmd, "run", "u", "",
+	pflag.StringVarP(&c.SecondaryCmd, "run", "u", "",
 		"command to execute if primary command succeeded.")
 
-	pflag.StringVarP(&tearDownCmd, "teardown", "d", "",
+	pflag.StringVarP(&c.TearDownCmd, "teardown_command", "d", "",
 		"teardown command to execute when -k timeout occurs (assumes -w). "+
 			"The PID is available in CMD_PID environment variable.")
+
+	pflag.DurationVarP(&c.TearDownTimeout, "timeout", "k", 0,
+		"timeout after which to kill the command subproces (default - do not kill).")
 
 	pflag.Parse()
 
@@ -82,20 +77,8 @@ func (c *Config) ParseCmdArgs() error {
 		return nil
 	}
 
-	if primaryCmd == "" && secondaryCmd == "" {
+	if c.PrimaryCmd == "" && c.SecondaryCmd == "" {
 		return fmt.Errorf("either primary or secondary command must be specified")
-	}
-
-	if primaryCmd != "" {
-		c.PrimaryCmd = command.New(primaryCmd)
-	}
-
-	if secondaryCmd != "" {
-		c.SecondaryCmd = command.New(secondaryCmd)
-	}
-
-	if tearDownCmd != "" {
-		c.TearDownCmd = command.New(tearDownCmd)
 	}
 
 	c.Files = pflag.Args()
