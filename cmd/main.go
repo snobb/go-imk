@@ -58,7 +58,6 @@ func run(cfg *config.Config) error {
 	commandRunner := command.NewCommandRunner(
 		cfg.PrimaryCmd,
 		cfg.SecondaryCmd,
-		cfg.TearDownCmd,
 		cfg.TearDownTimeout,
 	)
 

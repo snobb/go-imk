@@ -6,15 +6,14 @@ import (
 )
 
 type CommandRunner struct {
-	PrimaryCmd   *Command
-	SecondaryCmd *Command
-	TeardownCmd  *Command
+	primaryCmd   *Command
+	secondaryCmd *Command
 
 	tearDownTimeout time.Duration
 }
 
 func NewCommandRunner(
-	primaryCmd, secondaryCmd, tearDownCmd string,
+	primaryCmd, secondaryCmd string,
 	tearDownTimeout time.Duration,
 ) *CommandRunner {
 	pCmd := NewCommand(primaryCmd)
@@ -23,9 +22,8 @@ func NewCommandRunner(
 	}
 
 	return &CommandRunner{
-		PrimaryCmd:      pCmd,
-		SecondaryCmd:    NewCommand(secondaryCmd),
-		TeardownCmd:     NewCommand(tearDownCmd),
+		primaryCmd:      pCmd,
+		secondaryCmd:    NewCommand(secondaryCmd),
 		tearDownTimeout: tearDownTimeout,
 	}
 }
@@ -44,17 +42,17 @@ func (cr *CommandRunner) Run(ctx context.Context) error {
 }
 
 func (cr *CommandRunner) runPrimary(ctx context.Context) error {
-	if cr.PrimaryCmd == nil {
+	if cr.primaryCmd == nil {
 		return nil
 	}
 
-	return cr.PrimaryCmd.Execute(ctx)
+	return cr.primaryCmd.Execute(ctx)
 }
 
 func (cr *CommandRunner) runSecondary(ctx context.Context) {
-	if cr.SecondaryCmd != nil {
+	if cr.secondaryCmd != nil {
 		go func() {
-			cr.SecondaryCmd.Execute(ctx)
+			cr.secondaryCmd.Execute(ctx)
 		}()
 	}
 }

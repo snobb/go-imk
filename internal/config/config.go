@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -20,9 +21,7 @@ type Config struct {
 
 	PrimaryCmd   string
 	SecondaryCmd string
-	TearDownCmd  string
 
-	CommandDelay    time.Duration
 	TearDownTimeout time.Duration
 
 	Recurse bool
@@ -43,7 +42,7 @@ func New(version string, fileWalker fsops.Walker) *Config {
 func (c *Config) ParseCmdArgs() error {
 	var version bool
 	pflag.BoolVarP(&version, "version", "v", false,
-		"print version and exit.")
+		fmt.Sprintf("print version and exit. [%s]", c.version))
 
 	pflag.BoolVarP(&c.Recurse, "recurse", "r", false,
 		"if a directory is supplied, add all its sub-directories as well.")
@@ -54,27 +53,27 @@ func (c *Config) ParseCmdArgs() error {
 	pflag.BoolVarP(&c.RunNow, "immediate", "i", false,
 		"run command immediately before watching for events.")
 
-	pflag.DurationVarP(&c.CommandDelay, "threshold", "t", 0,
-		"number of seconds to skip after the last executed command (default: 0).")
-
 	pflag.StringVarP(&c.PrimaryCmd, "command", "c", "",
 		"command to execute when file is modified.")
 
 	pflag.StringVarP(&c.SecondaryCmd, "run", "u", "",
-		"command to execute if primary command succeeded.")
-
-	pflag.StringVarP(&c.TearDownCmd, "teardown_command", "d", "",
-		"teardown command to execute when -k timeout occurs (assumes -w). "+
-			"The PID is available in CMD_PID environment variable.")
+		"command to execute if primary command succeeded - runs in background. ")
 
 	pflag.DurationVarP(&c.TearDownTimeout, "timeout", "k", 0,
 		"timeout after which to kill the command subproces (default - do not kill).")
+
+	pflag.Usage = usage
+
+	if len(os.Args) < 2 {
+		pflag.Usage()
+		os.Exit(0)
+	}
 
 	pflag.Parse()
 
 	if version {
 		fmt.Println(c.version)
-		return nil
+		os.Exit(0)
 	}
 
 	if c.PrimaryCmd == "" && c.SecondaryCmd == "" {
@@ -103,4 +102,16 @@ func (c *Config) EnrichFiles() error {
 	}
 
 	return nil
+}
+
+func usage() {
+	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+	pflag.PrintDefaults()
+	fmt.Println("\nThe secondary command will run in the background and will be " +
+		"killed if the primary command fails.")
+	fmt.Println("\nExamples:")
+	fmt.Println("  imk -rc 'go build ./...' src/")
+	fmt.Println("  imk -rc 'go build ./...' src/ -k 5m")
+	fmt.Println("  imk -ric 'go build ./...' -u 'go run ./...' src/ -o")
+	fmt.Println()
 }
