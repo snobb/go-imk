@@ -19,9 +19,8 @@ type Command struct {
 
 	TearDownTimeout time.Duration
 
-	cmd  *exec.Cmd
-	wg   sync.WaitGroup
-	done chan struct{}
+	cmd *exec.Cmd
+	wg  sync.WaitGroup
 }
 
 func NewCommand(command string) *Command {
@@ -49,6 +48,7 @@ func (c *Command) WithTimeout(timeout time.Duration) *Command {
 
 func (c *Command) Execute(ctx context.Context) error {
 	c.Kill()
+	c.wg.Wait()
 
 	if c.TearDownTimeout > 1 {
 		var timeoutCancel context.CancelFunc
@@ -56,19 +56,21 @@ func (c *Command) Execute(ctx context.Context) error {
 		defer timeoutCancel()
 	}
 
-	c.done = make(chan struct{})
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go func() {
-		<-c.done
-		cancel()
-	}()
-
 	//nolint:gosec // G204 - need to run the command.
-	c.cmd = exec.CommandContext(ctx, c.Command, c.Args...)
+	c.cmd = exec.Command(c.Command, c.Args...)
 	c.cmd.Stderr = os.Stderr
 	c.cmd.Stdout = os.Stdout
+
+	// Run command in its own process group.
+	c.cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0, // make child process owner of the group
+	}
+
+	go func() {
+		<-ctx.Done()
+		c.Kill() // handle context cancellation.
+	}()
 
 	c.wg.Add(1)
 	defer c.wg.Done()
@@ -89,8 +91,16 @@ func (c *Command) Execute(ctx context.Context) error {
 
 func (c *Command) Kill() {
 	if c.cmd != nil {
-		close(c.done)
-		c.wg.Wait()
+		pid := c.cmd.Process.Pid
+		if pid <= 0 {
+			return
+		}
+
+		pgid, err := syscall.Getpgid(pid)
+		if err != nil || pgid <= 0 {
+			return
+		}
+		syscall.Kill(-pgid, syscall.SIGTERM)
 	}
 }
 
