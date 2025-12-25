@@ -74,7 +74,7 @@ func run(cfg *config.Config) error {
 	rlimit := ratelimit.New(1) // one command per second
 
 	for event := range events {
-		if event.Op != "WRITE" && event.Op != "RENAME" && event.Op != "CREATE" {
+		if event.Op != "CREATE" && event.Op != "RENAME" && event.Op != "WRITE" {
 			continue
 		}
 
