@@ -28,6 +28,8 @@ type Config struct {
 	OneRun  bool
 	RunNow  bool
 
+	OutFile string
+
 	version    string
 	fileWalker fsops.Walker
 }
@@ -47,8 +49,11 @@ func (c *Config) ParseCmdArgs() error {
 	pflag.BoolVarP(&c.Recurse, "recurse", "r", false,
 		"if a directory is supplied, add all its sub-directories as well.")
 
-	pflag.BoolVarP(&c.OneRun, "once", "o", false,
+	pflag.BoolVarP(&c.OneRun, "once", "n", false,
 		"run primary command once and exit on event.")
+
+	pflag.StringVarP(&c.OutFile, "output", "o", "",
+		"send the stdout of secondary command to a file.")
 
 	pflag.BoolVarP(&c.RunNow, "immediate", "i", false,
 		"run commands immediately before watching for events.")

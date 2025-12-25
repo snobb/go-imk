@@ -55,10 +55,22 @@ func run(cfg *config.Config) error {
 		return err
 	}
 
+	secondaryOutput := os.Stdout
+	if cfg.SecondaryCmd != "" && cfg.OutFile != "" {
+		secondaryOutput, err = os.OpenFile(cfg.OutFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		defer secondaryOutput.Close()
+
+		logger.Shoutf("redirecting secondary command output to file: %s", cfg.OutFile)
+	}
+
 	commandRunner := command.NewCommandRunner(
 		cfg.PrimaryCmd,
 		cfg.SecondaryCmd,
 		cfg.TearDownTimeout,
+		secondaryOutput,
 	)
 
 	if cfg.RunNow {

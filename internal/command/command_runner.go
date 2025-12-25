@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"io"
 	"time"
 )
 
@@ -15,15 +16,21 @@ type CommandRunner struct {
 func NewCommandRunner(
 	primaryCmd, secondaryCmd string,
 	tearDownTimeout time.Duration,
+	secondaryOutput io.Writer,
 ) *CommandRunner {
 	pCmd := NewCommand(primaryCmd)
 	if pCmd != nil {
 		pCmd = pCmd.WithTimeout(tearDownTimeout)
 	}
 
+	sCmd := NewCommand(secondaryCmd)
+	if sCmd != nil && secondaryOutput != nil {
+		sCmd = sCmd.WithTimeout(tearDownTimeout).WithOutput(secondaryOutput)
+	}
+
 	return &CommandRunner{
 		primaryCmd:      pCmd,
-		secondaryCmd:    NewCommand(secondaryCmd),
+		secondaryCmd:    sCmd,
 		tearDownTimeout: tearDownTimeout,
 	}
 }

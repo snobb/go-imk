@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -19,7 +20,9 @@ type Command struct {
 
 	TearDownTimeout time.Duration
 
-	cmd  *exec.Cmd
+	cmd *exec.Cmd
+	out io.Writer
+
 	wg   sync.WaitGroup
 	pgid int
 }
@@ -33,6 +36,7 @@ func NewCommand(command string) *Command {
 
 	cmd := &Command{
 		Command: tokens[0],
+		out:     os.Stdout,
 	}
 
 	if len(tokens) > 1 {
@@ -44,6 +48,11 @@ func NewCommand(command string) *Command {
 
 func (c *Command) WithTimeout(timeout time.Duration) *Command {
 	c.TearDownTimeout = timeout
+	return c
+}
+
+func (c *Command) WithOutput(out io.Writer) *Command {
+	c.out = out
 	return c
 }
 
@@ -60,7 +69,7 @@ func (c *Command) Execute(ctx context.Context) error {
 	//nolint:gosec // G204 - need to run the command.
 	c.cmd = exec.Command(c.Command, c.Args...)
 	c.cmd.Stderr = os.Stderr
-	c.cmd.Stdout = os.Stdout
+	c.cmd.Stdout = c.out
 
 	// Run command in its own process group.
 	c.cmd.SysProcAttr = &syscall.SysProcAttr{
