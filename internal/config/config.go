@@ -92,14 +92,17 @@ func (c *Config) ParseCmdArgs() error {
 }
 
 func (c *Config) EnrichFiles() error {
+	withChildren := make([]string, 0, len(c.Files))
 	for _, file := range c.Files {
 		files, err := c.fileWalker.Walk(file)
 		if err != nil {
 			return err
 		}
 
-		c.Files = append(c.Files, files...)
+		withChildren = append(withChildren, files...)
 	}
+
+	c.Files = withChildren
 
 	return nil
 }
