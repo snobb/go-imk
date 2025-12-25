@@ -88,14 +88,16 @@ func (c *Command) Execute(ctx context.Context) error {
 
 	if err := c.cmd.Wait(); err != nil {
 		if isExpectedSignal(err) {
-			logger.Shout("process killed by signal")
+			logger.Shoutf("process killed by signal [%s %s]",
+				c.Command, strings.Join(c.Args, " "))
 			return nil
 		}
 
 		return err
 	}
 
-	logger.Shoutf("exit code %d", c.cmd.ProcessState.ExitCode())
+	logger.Shoutf("exit code %d [%s %s]", c.cmd.ProcessState.ExitCode(),
+		c.Command, strings.Join(c.Args, " "))
 
 	return nil
 }
@@ -107,7 +109,7 @@ func (c *Command) Kill() {
 
 	selfPGID, _ := syscall.Getpgid(0)
 	if selfPGID == c.pgid {
-		logger.Shout("Kill(): refusing to kill own process group")
+		logger.Shout("refusing to commit suicide - attempting to kill own process group")
 		return
 	}
 
