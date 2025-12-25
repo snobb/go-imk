@@ -19,8 +19,9 @@ type Command struct {
 
 	TearDownTimeout time.Duration
 
-	cmd *exec.Cmd
-	wg  sync.WaitGroup
+	cmd  *exec.Cmd
+	wg   sync.WaitGroup
+	pgid int
 }
 
 func NewCommand(command string) *Command {
@@ -50,7 +51,7 @@ func (c *Command) Execute(ctx context.Context) error {
 	c.Kill()
 	c.wg.Wait()
 
-	if c.TearDownTimeout > 1 {
+	if c.TearDownTimeout > 0 {
 		var timeoutCancel context.CancelFunc
 		ctx, timeoutCancel = context.WithTimeout(ctx, c.TearDownTimeout)
 		defer timeoutCancel()
@@ -75,8 +76,18 @@ func (c *Command) Execute(ctx context.Context) error {
 	c.wg.Add(1)
 	defer c.wg.Done()
 
-	if err := c.cmd.Run(); err != nil {
-		if isSigKill(err) {
+	if err := c.cmd.Start(); err != nil {
+		return err
+	}
+
+	// Record PGID once, while we know the process exists
+	pgid, err := syscall.Getpgid(c.cmd.Process.Pid)
+	if err == nil && pgid > 0 {
+		c.pgid = pgid
+	}
+
+	if err := c.cmd.Wait(); err != nil {
+		if isExpectedSignal(err) {
 			logger.Shout("process killed by signal")
 			return nil
 		}
@@ -90,34 +101,38 @@ func (c *Command) Execute(ctx context.Context) error {
 }
 
 func (c *Command) Kill() {
-	if c.cmd != nil {
-		pid := c.cmd.Process.Pid
-		if pid <= 0 {
-			return
-		}
-
-		pgid, err := syscall.Getpgid(pid)
-		if err != nil || pgid <= 0 {
-			return
-		}
-		syscall.Kill(-pgid, syscall.SIGTERM)
+	if c.cmd == nil || c.pgid == 0 {
+		return
 	}
+
+	selfPGID, _ := syscall.Getpgid(0)
+	if selfPGID == c.pgid {
+		logger.Shout("Kill(): refusing to kill own process group")
+		return
+	}
+
+	_ = syscall.Kill(-c.pgid, syscall.SIGTERM)
 }
 
 func (c *Command) String() string {
 	return c.Command + " " + strings.Join(c.Args, " ")
 }
 
-func isSigKill(err error) bool {
+func isExpectedSignal(err error) bool {
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) {
 		return false
 	}
 
 	status, ok := exitErr.Sys().(syscall.WaitStatus)
-	if !ok {
+	if !ok || !status.Signaled() {
 		return false
 	}
 
-	return status.Signaled() && status.Signal() == syscall.SIGKILL
+	switch status.Signal() {
+	case syscall.SIGTERM, syscall.SIGKILL:
+		return true
+	default:
+		return false
+	}
 }
