@@ -9,15 +9,17 @@ import (
 
 type RLimit struct {
 	limit    int
+	interval time.Duration
 	rps      int
-	lastTime int64
+	lastTime time.Time
 }
 
-func New(limit int) *RLimit {
+func New(limit int, interval time.Duration) *RLimit {
 	return &RLimit{
 		limit:    limit,
+		interval: interval,
 		rps:      limit,
-		lastTime: time.Now().Unix(),
+		lastTime: time.Now(),
 	}
 }
 
@@ -26,10 +28,10 @@ func (s *RLimit) Lease(ctx context.Context, n int) (int, error) {
 		return 0, errors.New("impossible lease requested")
 	}
 
-	now := time.Now().Unix()
+	now := time.Now()
 
 	// reset time frame
-	if now != s.lastTime {
+	if now.Sub(s.lastTime) >= s.interval {
 		s.rps = s.limit
 		s.lastTime = now
 	}

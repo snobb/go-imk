@@ -3,6 +3,7 @@ package ratelimit_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go-imk/internal/ratelimit"
 	"go-imk/test/assert"
@@ -34,7 +35,7 @@ func TestStore_Lease(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rl := ratelimit.New(tt.limit)
+			rl := ratelimit.New(tt.limit, time.Second)
 			for i := 0; i < tt.nrun; i++ {
 				n, err := rl.Lease(context.Background(), tt.n)
 

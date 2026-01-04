@@ -57,9 +57,11 @@ func (cr *CommandRunner) runPrimary(ctx context.Context) error {
 }
 
 func (cr *CommandRunner) runSecondary(ctx context.Context) {
-	if cr.secondaryCmd != nil {
-		go func() {
-			cr.secondaryCmd.Execute(ctx)
-		}()
+	if cr.secondaryCmd == nil {
+		return
 	}
+
+	go func() {
+		cr.secondaryCmd.Execute(ctx)
+	}()
 }

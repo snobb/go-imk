@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"go-imk/internal/command"
 	"go-imk/internal/config"
@@ -83,10 +84,10 @@ func run(cfg *config.Config) error {
 	// then runs formatting tool, which results in 2 writes and thus 2 events.
 	// So I'm introducing a rate limiter that would only allow one command per second regardless of
 	// how many events have actuall come.
-	rlimit := ratelimit.New(1) // one command per second
+	rlimit := ratelimit.New(1, time.Second) // one command per second
 
 	for event := range events {
-		if event.Op != "CREATE" && event.Op != "RENAME" && event.Op != "WRITE" {
+		if !isInterestingOp(event.Op) {
 			continue
 		}
 
@@ -106,4 +107,8 @@ func run(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func isInterestingOp(op string) bool {
+	return op == "CREATE" || op == "RENAME" || op == "WRITE"
 }
