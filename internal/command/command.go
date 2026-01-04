@@ -96,13 +96,11 @@ func (c *Command) Execute(ctx context.Context) error {
 	}
 
 	if err := c.cmd.Wait(); err != nil {
-		if isExpectedSignal(err) {
+		if isNormalExit(err) {
 			logger.Shoutf("process killed by signal [%s %s]",
 				c.Command, strings.Join(c.Args, " "))
 			return nil
 		}
-
-		return err
 	}
 
 	logger.Shoutf("exit code %d [%s %s]", c.cmd.ProcessState.ExitCode(),
@@ -129,21 +127,25 @@ func (c *Command) String() string {
 	return c.Command + " " + strings.Join(c.Args, " ")
 }
 
-func isExpectedSignal(err error) bool {
+func isNormalExit(err error) bool {
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) {
-		return false
+		return false // other error - ignore
 	}
 
 	status, ok := exitErr.Sys().(syscall.WaitStatus)
-	if !ok || !status.Signaled() {
-		return false
+	if !ok {
+		return false // unknown error
+	}
+
+	if status.Exited() {
+		return true // normal exit (non-zero exit code is also normal)
 	}
 
 	switch status.Signal() {
 	case syscall.SIGTERM, syscall.SIGKILL:
-		return true
+		return true // normal kill
 	default:
-		return false
+		return false // other signal
 	}
 }
