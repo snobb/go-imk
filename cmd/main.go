@@ -47,16 +47,11 @@ func run(cfg *config.Config) error {
 		}
 	}()
 
-	logger.Shoutf("watching files and folders: %+v", cfg.Files)
-
-	watcher := fsops.NewFileWatcher(cfg.Files)
-
-	events, err := watcher.Watch(ctx)
-	if err != nil {
-		return err
-	}
+	logger.Shoutf("start monitoring: %s", cfg)
 
 	secondaryOutput := os.Stdout
+	var err error
+
 	if cfg.SecondaryCmd != "" && cfg.OutFile != "" {
 		secondaryOutput, err = os.OpenFile(cfg.OutFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -85,6 +80,13 @@ func run(cfg *config.Config) error {
 	// So I'm introducing a rate limiter that would only allow one command per second regardless of
 	// how many events have actuall come.
 	rlimit := ratelimit.New(1, time.Second) // one command per second
+
+	watcher := fsops.NewFileWatcher(cfg.Files)
+
+	events, err := watcher.Watch(ctx)
+	if err != nil {
+		return err
+	}
 
 	for event := range events {
 		if !isInterestingOp(event.Op) {

@@ -3,6 +3,7 @@ package fsops
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -14,28 +15,37 @@ var ignoredDirs = []string{
 	"/node_modules",
 	"/vendor",
 	"/target",
+	"__pycache__",
 }
 
-// implement Walker interface
+// DefaultWalker implements Walker interface
 var DefaultWalker = WalkerFunc(Walk)
 
 func Walk(path string) ([]string, error) {
 	files := make([]string, 0)
 
-	err := filepath.Walk(path, func(path string, info fs.FileInfo, err error) error {
+	pathInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to stat the path > %w", err)
+	}
+
+	if !pathInfo.IsDir() {
+		files = append(files, path)
+		return files, nil
+	}
+
+	err = filepath.Walk(path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("unable to access the path > %w", err)
 		}
 
-		if isIgnored(path) {
-			if info.IsDir() {
+		if info.IsDir() {
+			if isIgnored(path) {
 				return filepath.SkipDir // skipping the dir
-			} else {
-				return nil
 			}
-		}
 
-		files = append(files, path)
+			files = append(files, path)
+		}
 
 		return nil
 	})

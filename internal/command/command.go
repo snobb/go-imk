@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -12,6 +13,12 @@ import (
 	"time"
 
 	"go-imk/internal/logger"
+)
+
+const (
+	StatusExit = iota
+	StatusKill
+	StatusError
 )
 
 type Command struct {
@@ -96,8 +103,22 @@ func (c *Command) Execute(ctx context.Context) error {
 	}
 
 	if err := c.cmd.Wait(); err != nil {
-		if isNormalExit(err) {
-			logger.Shoutf("process killed by signal [%s %s]",
+		status, err := exitInfo(err)
+		if err != nil {
+			if status == StatusKill {
+				logger.Shoutf("process killed by signal [%s %s]: %s",
+					c.Command, strings.Join(c.Args, " "), err)
+				return err
+			}
+
+			if status == StatusError {
+				logger.Shoutf("error [%s %s]: %s", c.Command, strings.Join(c.Args, " "), err)
+				return err
+			}
+		}
+
+		if status == StatusKill {
+			logger.Shoutf("process terminated by timeout [%s %s]",
 				c.Command, strings.Join(c.Args, " "))
 			return nil
 		}
@@ -127,26 +148,26 @@ func (c *Command) String() string {
 	return c.Command + " " + strings.Join(c.Args, " ")
 }
 
-func isNormalExit(err error) bool {
+func exitInfo(err error) (int, error) {
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) {
-		return false // other error - ignore
+		return StatusError, fmt.Errorf("unexpected error > %w", err) // other error
 	}
 
 	status, ok := exitErr.Sys().(syscall.WaitStatus)
 	if !ok {
-		return false // unknown error
+		return StatusError, fmt.Errorf("no wait status > %w", err) // unknown error
 	}
 
 	if status.Exited() {
-		return true // normal exit (non-zero exit code is also normal)
+		return StatusExit, nil
 	}
 
 	switch status.Signal() {
 	case syscall.SIGTERM, syscall.SIGKILL:
-		return true // normal kill
+		return StatusKill, nil // normal kill
 	default:
 		logger.Shoutf("unexpected signal [%d]", status.Signal())
-		return false // other signal
+		return StatusKill, fmt.Errorf("unexpected signal %s > %w", status.Signal(), err) // abnormal kill
 	}
 }

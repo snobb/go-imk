@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -98,6 +99,40 @@ func (c *Config) ParseCmdArgs() error {
 	}
 
 	return nil
+}
+
+func (c *Config) String() string {
+	tokens := make([]string, 0)
+
+	if c.PrimaryCmd != "" {
+		tokens = append(tokens, fmt.Sprintf("primary[%s]", c.PrimaryCmd))
+	}
+
+	if c.SecondaryCmd != "" {
+		tokens = append(tokens, fmt.Sprintf("secondary[%s]", c.SecondaryCmd))
+	}
+
+	if c.TearDownTimeout != 0 {
+		tokens = append(tokens, fmt.Sprintf("timeout[%s]", c.TearDownTimeout.String()))
+	}
+
+	if c.Recurse {
+		tokens = append(tokens, "recurse")
+	}
+
+	if c.OneRun {
+		tokens = append(tokens, "one-run")
+	}
+
+	if c.RunNow {
+		tokens = append(tokens, "immediate")
+	}
+
+	if c.Files != nil {
+		tokens = append(tokens, fmt.Sprintf("files[%s]", strings.Join(c.Files, ",")))
+	}
+
+	return strings.Join(tokens, " ")
 }
 
 func (c *Config) EnrichFiles() error {
