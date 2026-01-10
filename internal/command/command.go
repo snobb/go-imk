@@ -146,6 +146,7 @@ func isNormalExit(err error) bool {
 	case syscall.SIGTERM, syscall.SIGKILL:
 		return true // normal kill
 	default:
+		logger.Shoutf("unexpected signal [%d]", status.Signal())
 		return false // other signal
 	}
 }

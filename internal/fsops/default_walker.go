@@ -27,14 +27,15 @@ func Walk(path string) ([]string, error) {
 			return fmt.Errorf("unable to access the path > %w", err)
 		}
 
-		if info.IsDir() {
-			if isIgnored(path) {
-				// skipping the dir
-				return filepath.SkipDir
+		if isIgnored(path) {
+			if info.IsDir() {
+				return filepath.SkipDir // skipping the dir
+			} else {
+				return nil
 			}
-
-			files = append(files, path)
 		}
+
+		files = append(files, path)
 
 		return nil
 	})
