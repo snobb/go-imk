@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -49,24 +51,26 @@ func run(cfg *config.Config) error {
 
 	logger.Shoutf("start monitoring: %s", cfg)
 
-	secondaryOutput := os.Stdout
-	var err error
+	var outFiles []io.Writer
+	if cfg.OutFilePfx != "" {
+		for i := range len(cfg.Commands) - 1 {
+			outFile := fmt.Sprintf("%s%d.out", cfg.OutFilePfx, i+1)
 
-	if cfg.SecondaryCmd != "" && cfg.OutFile != "" {
-		secondaryOutput, err = os.OpenFile(cfg.OutFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
+			cmdOut, err := os.OpenFile(outFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			defer cmdOut.Close()
+
+			logger.Shoutf("redirecting %d command output to file: %s", i+1, outFile)
+			outFiles = append(outFiles, cmdOut)
 		}
-		defer secondaryOutput.Close()
-
-		logger.Shoutf("redirecting secondary command output to file: %s", cfg.OutFile)
 	}
 
 	commandRunner := command.NewCommandRunner(
-		cfg.PrimaryCmd,
-		cfg.SecondaryCmd,
+		cfg.Commands,
 		cfg.TearDownTimeout,
-		secondaryOutput,
+		outFiles,
 	)
 
 	if cfg.RunNow {

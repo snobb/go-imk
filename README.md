@@ -10,7 +10,7 @@ Building:
 
 ```bash
 make
-cp -f bin/imk /usr/local/bin/
+sudo cp -f bin/imk /usr/local/bin/
 ```
 
 
@@ -18,33 +18,31 @@ Usage:
 ------
 ```plain
 $ imk -h
-
 Usage of imk:
-  -c, --command string     primary command to execute when a file or a folder is modified.
+  -c, --command strings    command to execute on change (can be specified multiple times)
   -i, --immediate          run commands immediately before watching for events.
   -n, --once               run primary command once and exit on event.
-  -o, --output string      send the stdout of secondary command to a file.
+  -o, --output string      send the stdout of secondary command to a file with given prefix.
   -r, --recurse            if a directory is supplied, add all its sub-directories as well.
-  -u, --run string         secondary command to execute if primary command succeeded - runs in background.
   -k, --timeout duration   timeout after which to kill the command subprocess (default - do not kill).
-  -v, --version            print version and exit. [main.14.da7d12e]
+  -v, --version            print version and exit. [main.18.82e479f]
 
 It is required to specify either primary or secondary command (or both).
-
-The secondary command will run in the background and will be restarted immediately after the primary command is executed the next time.
+If more then one command is specified the first command is primary and will run in foreground
+while the rest of the commands are secondary and will run in background and can be long-running.
 
 Examples:
   imk -rc 'go build ./...' src/
   imk -rc 'go build ./...' src/ -k 5m
-  imk -ric 'go build ./...' -u 'go run ./...' src/
+  imk -ric 'go build ./...' -c 'go run ./...' src/
 
 ```
 
 To monitor all files and run a command on change, do the following:
 
 ```plain
-$ imk -ric 'make dist' -u 'node --enable-source-maps dist/app.js' ./src/
-:: 17:10:16 === watching files and folders: [./src/ ./src/ src/linestream src/log src/payment src/tcpserver src/test src/test/mocksocket] ===
+$ imk -ric 'make dist' -c 'node --enable-source-maps dist/app.js' ./src/
+:: 17:10:16 === watching files and folders: [./src/ ./src/main src/test] ===
 rm -rf dist
 ./node_modules/.bin/tsc -p tsconfig-build.json
 :: 17:10:18 === exit code 0 ===
@@ -57,4 +55,6 @@ rm -rf dist
 listening on: 8888
 ```
 
-If any of the monitored files are modified, the build command (-c flag) will be executed and if it's successful, the run command (-u) will be run (if it's running - it will be killed and restarted).
+If any of the monitored files are modified, the primary command (first -c flag)
+will be executed and if it's successful, the rest of the commands will be run
+in the background (other -c flags).
