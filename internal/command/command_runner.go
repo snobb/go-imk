@@ -7,31 +7,37 @@ import (
 )
 
 type CommandRunner struct {
-	primaryCmd   *Command
-	secondaryCmd *Command
+	commands []*Command
 
 	tearDownTimeout time.Duration
+	outFile         string
 }
 
 func NewCommandRunner(
-	primaryCmd, secondaryCmd string,
+	commands []string,
 	tearDownTimeout time.Duration,
-	secondaryOutput io.Writer,
+	outFiles []io.Writer,
 ) *CommandRunner {
-	pCmd := NewCommand(primaryCmd)
-	if pCmd != nil {
-		pCmd = pCmd.WithTimeout(tearDownTimeout)
-	}
+	cmds := make([]*Command, 0, len(commands))
 
-	sCmd := NewCommand(secondaryCmd)
-	if sCmd != nil && secondaryOutput != nil {
-		sCmd = sCmd.WithTimeout(tearDownTimeout).WithOutput(secondaryOutput)
+	cmd := NewCommand(commands[0]).
+		WithTimeout(tearDownTimeout)
+	cmds = append(cmds, cmd)
+
+	for i, cmdStr := range commands[1:] {
+		cmd = NewCommand(cmdStr).
+			WithTimeout(tearDownTimeout)
+
+		if len(outFiles) > 0 {
+			cmd.WithOutput(outFiles[i])
+		}
+
+		cmds = append(cmds, cmd)
 	}
 
 	return &CommandRunner{
-		primaryCmd:      pCmd,
-		secondaryCmd:    sCmd,
 		tearDownTimeout: tearDownTimeout,
+		commands:        cmds,
 	}
 }
 
@@ -39,29 +45,16 @@ func NewCommandRunner(
 // command. The command is run in a separate go routine and can be long running. In case it's
 // running, the command is killed and restarted.
 func (cr *CommandRunner) Run(ctx context.Context) error {
-	if err := cr.runPrimary(ctx); err != nil {
-		return err
-	}
+	for i, cmd := range cr.commands {
+		if i == 0 {
+			if err := cmd.Execute(ctx); err != nil {
+				return err
+			}
+			continue
+		}
 
-	cr.runSecondary(ctx)
+		go cmd.Execute(ctx)
+	}
 
 	return nil
-}
-
-func (cr *CommandRunner) runPrimary(ctx context.Context) error {
-	if cr.primaryCmd == nil {
-		return nil
-	}
-
-	return cr.primaryCmd.Execute(ctx)
-}
-
-func (cr *CommandRunner) runSecondary(ctx context.Context) {
-	if cr.secondaryCmd == nil {
-		return
-	}
-
-	go func() {
-		cr.secondaryCmd.Execute(ctx)
-	}()
 }
