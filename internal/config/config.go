@@ -24,9 +24,10 @@ type Config struct {
 
 	TearDownTimeout time.Duration
 
-	Recurse bool
-	OneRun  bool
-	RunNow  bool
+	Recurse   bool
+	OneRun    bool
+	RunNow    bool
+	WrapShell bool
 
 	OutFilePfx string
 
@@ -58,8 +59,11 @@ func (c *Config) ParseCmdArgs() error {
 	pflag.BoolVarP(&c.RunNow, "immediate", "i", false,
 		"run commands immediately before watching for events.")
 
-	pflag.StringSliceVarP(&c.Commands, "command", "c", []string{},
+	pflag.StringArrayVarP(&c.Commands, "command", "c", []string{},
 		"command to execute on change (can be specified multiple times)")
+
+	pflag.BoolVarP(&c.WrapShell, "wrapshell", "w", false,
+		"wrap command with shell (default - false).")
 
 	pflag.DurationVarP(&c.TearDownTimeout, "timeout", "k", 0,
 		"timeout after which to kill the command subprocess (default - do not kill).")
@@ -118,6 +122,10 @@ func (c *Config) String() string {
 
 	if c.RunNow {
 		tokens = append(tokens, "immediate")
+	}
+
+	if c.WrapShell {
+		tokens = append(tokens, "wrapshell")
 	}
 
 	if c.Files != nil {

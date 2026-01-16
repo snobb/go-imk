@@ -18,11 +18,17 @@ func NewCommandRunner(
 	commands []string,
 	tearDownTimeout time.Duration,
 	outFiles []io.Writer,
+	wrapShell bool,
 ) *CommandRunner {
 	cmds := make([]*Command, 0, len(commands))
 
 	cmd := NewCommand(commands[0]).
 		WithTimeout(tearDownTimeout)
+
+	if wrapShell {
+		cmd = cmd.WithShell()
+	}
+
 	cmds = append(cmds, cmd)
 
 	for i, cmdStr := range commands[1:] {
@@ -31,6 +37,10 @@ func NewCommandRunner(
 
 		if len(outFiles) > 0 {
 			cmd.WithOutput(outFiles[i])
+		}
+
+		if wrapShell {
+			cmd = cmd.WithShell()
 		}
 
 		cmds = append(cmds, cmd)

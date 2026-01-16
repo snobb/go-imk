@@ -63,6 +63,13 @@ func (c *Command) WithOutput(out io.Writer) *Command {
 	return c
 }
 
+func (c *Command) WithShell() *Command {
+	args := append([]string{c.Command}, c.Args...)
+	c.Args = append([]string{"-c"}, strings.Join(args, " "))
+	c.Command = "/bin/sh"
+	return c
+}
+
 func (c *Command) Execute(ctx context.Context) error {
 	c.Kill()
 	c.wg.Wait()

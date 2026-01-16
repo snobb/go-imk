@@ -71,6 +71,7 @@ func run(cfg *config.Config) error {
 		cfg.Commands,
 		cfg.TearDownTimeout,
 		outFiles,
+		cfg.WrapShell,
 	)
 
 	if cfg.RunNow {
