@@ -118,7 +118,7 @@ func (c *Command) Execute(ctx context.Context) error {
 		}
 
 		if status == StatusKill {
-			logger.Shoutf("process terminated by timeout [%s %s]",
+			logger.Shoutf("process terminated [%s %s]",
 				c.Command, strings.Join(c.Args, " "))
 			return nil
 		}
