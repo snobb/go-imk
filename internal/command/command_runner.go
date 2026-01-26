@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"io"
-	"sync"
 	"time"
 )
 
@@ -64,21 +63,9 @@ func (cr *CommandRunner) Run(ctx context.Context) error {
 			continue
 		}
 
-		var wg sync.WaitGroup
-		wg.Add(1)
-
 		go func() {
-			defer wg.Done()
 			cmd.Execute(ctx)
 		}()
-
-		wg.Wait()
-
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
 	}
 
 	return nil
