@@ -1,4 +1,4 @@
-module go-imk
+module github.com/snobb/go-imk
 
 go 1.25
 

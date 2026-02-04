@@ -1,6 +1,6 @@
 {
     "go.formatTool": "goimports",
     "gopls": {
-        "formatting.local": "go-imk",
-    },
+        "formatting.local": "github/snobb/go-imk"
+    }
 }

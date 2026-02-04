@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"go-imk/internal/ratelimit"
-	"go-imk/test/assert"
+	"github.com/snobb/go-imk/internal/ratelimit"
+	"github.com/snobb/go-imk/test/assert"
 )
 
 func TestStore_Lease(t *testing.T) {

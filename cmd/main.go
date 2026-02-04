@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"go-imk/internal/command"
-	"go-imk/internal/config"
-	"go-imk/internal/fsops"
-	"go-imk/internal/logger"
-	"go-imk/internal/ratelimit"
+	"github.com/snobb/go-imk/internal/command"
+	"github.com/snobb/go-imk/internal/config"
+	"github.com/snobb/go-imk/internal/fsops"
+	"github.com/snobb/go-imk/internal/logger"
+	"github.com/snobb/go-imk/internal/ratelimit"
 )
 
 var version string

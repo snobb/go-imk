@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"go-imk/internal/logger"
+	"github.com/snobb/go-imk/internal/logger"
 
 	"github.com/fsnotify/fsnotify"
 )

@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"go-imk/internal/logger"
+	"github.com/snobb/go-imk/internal/logger"
 )
 
 const (

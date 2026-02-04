@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"go-imk/internal/fsops"
+	"github.com/snobb/go-imk/internal/fsops"
 )
 
 var (
