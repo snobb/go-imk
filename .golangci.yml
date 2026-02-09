@@ -43,7 +43,7 @@ linters:
             - $gostd
             - github.com/fsnotify/fsnotify
             - github.com/spf13/pflag
-            - github.com/stretchr/testify
+            - github.com/snobb
     dupl:
       threshold: 100
     funlen:

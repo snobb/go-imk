@@ -98,7 +98,7 @@ func run(cfg *config.Config) error {
 			continue
 		}
 
-		if _, err := rlimit.Lease(ctx, 1); err != nil {
+		if _, err := rlimit.Lease(1); err != nil {
 			continue // ignore event per rate limit
 		}
 

@@ -1,7 +1,6 @@
 package ratelimit_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -37,7 +36,7 @@ func TestStore_Lease(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rl := ratelimit.New(tt.limit, time.Second)
 			for i := 0; i < tt.nrun; i++ {
-				n, err := rl.Lease(context.Background(), tt.n)
+				n, err := rl.Lease(tt.n)
 
 				if i >= tt.limit && tt.wantErr {
 					assert.Error(t, err)
