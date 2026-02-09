@@ -15,11 +15,12 @@ var ErrRateLimitExceeded = errors.New("rate limit exceeded")
 // implementation should be sufficient.
 // Otherwise we could use a Token Bucket implementation that provides a steady rate of execution.
 type RLimit struct {
-	limit    int
-	interval time.Duration
-	rps      int
-	lastTime time.Time
-	mu       sync.Mutex
+	limit    int           // max leases per interval
+	rps      int           // current RPS
+	lastTime time.Time     // timestamp of last reset
+	interval time.Duration // reset interval
+
+	mu sync.Mutex
 }
 
 // New creates a new instance of rate limiter.

@@ -18,6 +18,12 @@ import (
 
 var version string
 
+const (
+	ratelimitBucketCapacity   = 1 // max 1 command per interval
+	ratelimitBucketRefillRate = 1 //
+	ratelimitInterval         = 1500 * time.Millisecond
+)
+
 func main() {
 	cfg := config.New(version, fsops.DefaultWalker)
 
@@ -82,9 +88,10 @@ func run(cfg *config.Config) error {
 
 	// often there is a burst of events that comes at about the same time. Eg. IDE saves file and
 	// then runs formatting tool, which results in 2 writes and thus 2 events.
-	// So I'm introducing a rate limiter that would only allow one command per second regardless of
-	// how many events have actuall come.
-	rlimit := ratelimit.New(1, time.Second) // one command per second
+	rlimit := ratelimit.NewTokenBucket(
+		ratelimitBucketCapacity,
+		ratelimitBucketCapacity,
+		ratelimitInterval)
 
 	watcher := fsops.NewFileWatcher(cfg.Files)
 
@@ -98,7 +105,7 @@ func run(cfg *config.Config) error {
 			continue
 		}
 
-		if _, err := rlimit.Lease(1); err != nil {
+		if err := rlimit.Lease(1); err != nil {
 			continue // ignore event per rate limit
 		}
 
