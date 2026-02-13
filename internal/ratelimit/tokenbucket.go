@@ -1,3 +1,4 @@
+// Package ratelimit implements a token bucket algorithm for rate limiting.
 package ratelimit
 
 import (

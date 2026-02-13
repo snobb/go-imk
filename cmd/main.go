@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/snobb/go-imk/internal/command"
 	"github.com/snobb/go-imk/internal/config"
@@ -19,11 +18,6 @@ import (
 const defaultPermissions = 0644
 
 var version string
-
-const (
-	ratelimitBucketCapacity = 1 // max 1 command per interval
-	ratelimitInterval       = 1500 * time.Millisecond
-)
 
 func main() {
 	cfg := config.New(version, fsops.DefaultWalker)
@@ -96,9 +90,9 @@ func run(cfg *config.Config) error {
 	// often there is a burst of events that comes at about the same time. Eg. IDE saves file and
 	// then runs formatting tool, which results in 2 writes and thus 2 events.
 	rlimit := ratelimit.NewTokenBucket(
-		ratelimitBucketCapacity,
-		ratelimitBucketCapacity,
-		ratelimitInterval)
+		cfg.RateLimitBucketCapacity,
+		cfg.RateLimitBucketCapacity,
+		cfg.RateLimitInterval)
 
 	watcher := fsops.NewFileWatcher(cfg.Files)
 

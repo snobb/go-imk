@@ -1,31 +1,30 @@
 [![Build](https://github.com/snobb/go-imk/actions/workflows/go.yml/badge.svg)](https://github.com/snobb/go-imk/actions/workflows/go.yml)
 
+# IMK
 
-IMK
-============
 Simple file watcher similar to fswatch or inotify-wait.
 
-Building:
----------
+## Building:
 
 ```bash
 make
 sudo cp -f bin/imk /usr/local/bin/
 ```
 
+## Usage:
 
-Usage:
-------
 ```plain
 $ imk -h
-Usage of imk:
-  -c, --command strings    command to execute on change (can be specified multiple times)
-  -i, --immediate          run commands immediately before watching for events.
-  -n, --once               run primary command once and exit on event.
-  -o, --output string      send the stdout of secondary command to a file with given prefix.
-  -r, --recurse            if a directory is supplied, add all its sub-directories as well.
-  -k, --timeout duration   timeout after which to kill the command subprocess (default - do not kill).
-  -v, --version            print version and exit. [main.18.82e479f]
+Usage of ./bin/imk:
+  -c, --command stringArray            command to execute on change (can be specified multiple times)
+  -i, --immediate                      run commands immediately before watching for events.
+  -n, --once                           run primary command once and exit on event.
+  -o, --output string                  send the stdout of secondary command to a file with given prefix.
+      --rate-limit-interval duration   Limit execution to one command per the given <interval>. (default 1.5s)
+  -r, --recurse                        if a directory is supplied, add all its sub-directories as well.
+  -k, --timeout duration               timeout after which to kill the command subprocess (default - do not kill).
+  -v, --version                        print version and exit. [main.26.a81cc5e]
+  -w, --wrapshell                      wrap command with shell (default - false).
 
 It is required to specify either primary or secondary command (or both).
 If more then one command is specified the first command is primary and will run in foreground
@@ -35,7 +34,6 @@ Examples:
   imk -rc 'go build ./...' src/
   imk -rc 'go build ./...' src/ -k 5m
   imk -ric 'go build ./...' -c 'go run ./...' src/
-
 ```
 
 To monitor all files and run a command on change, do the following:

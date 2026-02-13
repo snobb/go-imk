@@ -1,3 +1,4 @@
+// Package fsops provides file system operations.
 package fsops
 
 import "context"

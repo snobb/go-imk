@@ -1,3 +1,4 @@
+// Package command provides commands execution interface..
 package command
 
 import (

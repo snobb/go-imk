@@ -1,3 +1,4 @@
+// Package config provides configuration for go-imk
 package config
 
 import (
@@ -17,6 +18,11 @@ var (
 	ErrNoSecondaryCommand = errors.New("no secondary command specified")
 )
 
+const (
+	defaultRateLimitBucketCapacity = 1
+	defaultRateLimitInterval       = 1500 * time.Millisecond
+)
+
 type Config struct {
 	Files []string
 
@@ -31,14 +37,18 @@ type Config struct {
 
 	OutFilePfx string
 
+	RateLimitBucketCapacity int
+	RateLimitInterval       time.Duration
+
 	version    string
 	fileWalker fsops.Walker
 }
 
 func New(version string, fileWalker fsops.Walker) *Config {
 	return &Config{
-		fileWalker: fileWalker,
-		version:    version,
+		RateLimitBucketCapacity: defaultRateLimitBucketCapacity,
+		fileWalker:              fileWalker,
+		version:                 version,
 	}
 }
 
@@ -68,9 +78,12 @@ func (c *Config) ParseCmdArgs() error {
 	pflag.DurationVarP(&c.TearDownTimeout, "timeout", "k", 0,
 		"timeout after which to kill the command subprocess (default - do not kill).")
 
+	pflag.DurationVarP(&c.RateLimitInterval, "rate-limit-interval", "",
+		defaultRateLimitInterval, "Limit execution to one command per the given <interval>.")
+
 	pflag.Usage = usage
 
-	if len(os.Args) < 2 {
+	if len(os.Args) < 2 { //nolint:mnd
 		pflag.Usage()
 		os.Exit(0)
 	}
