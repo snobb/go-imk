@@ -16,7 +16,7 @@ type CommandRunner struct {
 func NewCommandRunner(
 	commands []string,
 	tearDownTimeout time.Duration,
-	outFiles []io.Writer,
+	outFiles []io.WriteCloser,
 	wrapShell bool,
 ) *CommandRunner {
 	cmds := make([]*Command, 0, len(commands))

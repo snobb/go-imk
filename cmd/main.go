@@ -16,12 +16,13 @@ import (
 	"github.com/snobb/go-imk/internal/ratelimit"
 )
 
+const defaultPermissions = 0644
+
 var version string
 
 const (
-	ratelimitBucketCapacity   = 1 // max 1 command per interval
-	ratelimitBucketRefillRate = 1 //
-	ratelimitInterval         = 1500 * time.Millisecond
+	ratelimitBucketCapacity = 1 // max 1 command per interval
+	ratelimitInterval       = 1500 * time.Millisecond
 )
 
 func main() {
@@ -57,20 +58,26 @@ func run(cfg *config.Config) error {
 
 	logger.Shoutf("start monitoring: %s", cfg)
 
-	var outFiles []io.Writer
+	var outFiles []io.WriteCloser
 	if cfg.OutFilePfx != "" {
 		for i := range len(cfg.Commands) - 1 {
 			outFile := fmt.Sprintf("%s%d.out", cfg.OutFilePfx, i+1)
 
-			cmdOut, err := os.OpenFile(outFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			cmdOut, err := os.OpenFile(outFile,
+				os.O_APPEND|os.O_CREATE|os.O_WRONLY, defaultPermissions)
 			if err != nil {
 				return err
 			}
-			defer cmdOut.Close()
 
 			logger.Shoutf("redirecting %d command output to file: %s", i+1, outFile)
 			outFiles = append(outFiles, cmdOut)
 		}
+
+		defer func() {
+			for _, outFile := range outFiles {
+				outFile.Close()
+			}
+		}()
 	}
 
 	commandRunner := command.NewCommandRunner(
