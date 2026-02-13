@@ -11,35 +11,48 @@ REVCNT   := ${shell git rev-list --count $(BRANCH)}
 REVHASH  := ${shell git log -1 --format="%h"}
 LDFLAGS  := -X main.version=${BRANCH}.${REVCNT}.${REVHASH} -s
 CFLAGS   := --ldflags '${LDFLAGS}' -o $(BIN)/$(TARGET)
+TIMEOUT  := 5
 
-all: build
+help: ## Show this help
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {sub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' ${MAKEFILE_LIST}
 
-lint:
-	golangci-lint run
-
-install_deps_tools:
+.PHONY: install_deps_tools
+install_deps_tools: ## Install dev dependencies
 	go install github.com/matryer/moq@latest
 
-cover:
+.PHONY: init-hooks
+init-hooks:
+	cp -f gitHooks/* .git/hooks/
+	chmod +x .git/hooks/*
+
+.PHONY: lint
+lint: ## Run golangci-lint
+	golangci-lint run
+
+.PHONY: cover
+cover: ## Run coverage
 	go tool cover -html=$(COVEROUT)
 	-rm -f $(COVEROUT)
 
-test:
-	go test -timeout $(TIMEOUT)s -cover -coverprofile=$(COVEROUT) ./pkg/...
+.PHONY: test
+test: ## Run tests
+	go test -timeout $(TIMEOUT)s -cover -coverprofile=$(COVEROUT) ./internal/...
 
 # requires moq tool to be installed
 # go install github.com/matryer/moq@latest
-generate:
+.PHONY: generate
+generate: ## Generate mocks
 	go generate ./internal/...
 
-build: clean
+.PHONY: build
+build: clean ## Build binary
 	CGO_ENABLED=0 go build ${CFLAGS} $(MAIN)
 
-build-linux: clean
+.PHONY: build-linux
+build-linux: clean ## Build linux binary
 	CGO_ENABLED=0 GOOS=linux go build ${CFLAGS} -a -installsuffix cgo $(MAIN)
 
+.PHONY: clean ## Clean everything
 clean:
 	-rm -rf $(BIN)
 	-rm -f $(COVEROUT)
-
-.PHONY: build build-linux
