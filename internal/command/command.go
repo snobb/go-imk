@@ -82,7 +82,7 @@ func (c *Command) Execute(ctx context.Context) error {
 	}
 
 	//nolint:gosec // G204 - need to run the command.
-	c.cmd = exec.Command(c.Command, c.Args...)
+	c.cmd = exec.CommandContext(ctx, c.Command, c.Args...)
 	c.cmd.Stderr = os.Stderr
 	c.cmd.Stdout = c.out
 

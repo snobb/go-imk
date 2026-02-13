@@ -10,7 +10,6 @@ type CommandRunner struct {
 	commands []*Command
 
 	tearDownTimeout time.Duration
-	outFile         string
 }
 
 func NewCommandRunner(
@@ -64,7 +63,7 @@ func (cr *CommandRunner) Run(ctx context.Context) error {
 		}
 
 		go func() {
-			cmd.Execute(ctx)
+			_ = cmd.Execute(ctx)
 		}()
 	}
 

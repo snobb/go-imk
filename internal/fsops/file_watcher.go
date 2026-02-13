@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/snobb/go-imk/internal/logger"
-
 	"github.com/fsnotify/fsnotify"
+
+	"github.com/snobb/go-imk/internal/logger"
 )
 
 type FileWatcher struct {
