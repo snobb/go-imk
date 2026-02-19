@@ -81,13 +81,21 @@ jobs:
         run: |
           shasum -a 256 dist/*.tar.gz > dist/SHA256SUMS
 
+      - name: Get previous tag
+        id: prevtag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
       - name: Generate changelog
         id: changelog
-        uses: heinrichreimer/action-github-changelog-generator@v2.3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          stripHeaders: true
-          futureRelease: ${{ github.ref_name }}
+        run: |
+          if [ -n "${{ steps.prevtag.outputs.prev_tag }}" ]; then
+            CHANGELOG=$(git log ${{ steps.prevtag.outputs.prev_tag }}..HEAD --pretty=format:"- %s (%h)" --reverse)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --reverse -n 50)
+          fi
+          echo "changelog=$CHANGELOG" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
