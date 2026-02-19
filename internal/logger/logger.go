@@ -9,7 +9,7 @@ func Println(msg ...any) {
 	fmt.Printf(":: %s %s\n", time.Now().Format("15:04:05"), fmt.Sprint(msg...))
 }
 
-func Printf(format string, v ...interface{}) {
+func Printf(format string, v ...any) {
 	fmt.Printf(":: %s %s\n",
 		time.Now().Format("15:04:05"), fmt.Sprintf(format, v...))
 }
@@ -19,7 +19,7 @@ func Shout(msg ...any) {
 		time.Now().Format("15:04:05"), fmt.Sprint(msg...))
 }
 
-func Shoutf(format string, v ...interface{}) {
+func Shoutf(format string, v ...any) {
 	fmt.Printf(":: %s === %s ===\n",
 		time.Now().Format("15:04:05"), fmt.Sprintf(format, v...))
 }
