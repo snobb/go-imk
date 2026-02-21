@@ -167,10 +167,8 @@ func (c *Config) EnrichFiles() error {
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 	pflag.PrintDefaults()
-	fmt.Println("\nIt is required to specify either primary or secondary command (or both).")
-	fmt.Println("If more then one command is specified the first command is primary and " +
-		"will run in foreground\nwhile the rest of the commands are secondary and will run " +
-		"in background and can be long-running.")
+	fmt.Println("\nIf multiple commands are specified, the first runs in the foreground as the primary " +
+		"command.\nSubsequent commands run in the background and may be long-running.")
 	fmt.Println("\nExamples:")
 	fmt.Println("  imk -rc 'go build ./...' src/")
 	fmt.Println("  imk -rc 'go build ./...' src/ -k 5m")

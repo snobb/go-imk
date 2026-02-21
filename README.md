@@ -14,7 +14,7 @@ sudo cp -f bin/imk /usr/local/bin/
 ## Usage:
 
 ```plain
-$ imk -h
+$ ./bin/imk
 Usage of ./bin/imk:
   -c, --command stringArray            command to execute on change (can be specified multiple times)
   -i, --immediate                      run commands immediately before watching for events.
@@ -23,12 +23,11 @@ Usage of ./bin/imk:
       --rate-limit-interval duration   Limit execution to one command per the given <interval>. (default 1.5s)
   -r, --recurse                        if a directory is supplied, add all its sub-directories as well.
   -k, --timeout duration               timeout after which to kill the command subprocess (default - do not kill).
-  -v, --version                        print version and exit. [main.26.a81cc5e]
+  -v, --version                        print version and exit. [v1.0.0-2-ge225-dev]
   -w, --wrapshell                      wrap command with shell (default - false).
 
-It is required to specify either primary or secondary command (or both).
-If more then one command is specified the first command is primary and will run in foreground
-while the rest of the commands are secondary and will run in background and can be long-running.
+If multiple commands are specified, the first runs in the foreground as the primary command.
+Subsequent commands run in the background and may be long-running.
 
 Examples:
   imk -rc 'go build ./...' src/

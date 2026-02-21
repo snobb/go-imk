@@ -6,10 +6,8 @@ MAIN     = ./cmd/main.go
 BIN      = ./bin
 COVEROUT = cover.out
 
-BRANCH   := ${shell git rev-parse --abbrev-ref HEAD}
-REVCNT   := ${shell git rev-list --count $(BRANCH)}
-REVHASH  := ${shell git log -1 --format="%h"}
-LDFLAGS  := -X main.version=${BRANCH}.${REVCNT}.${REVHASH} -s
+VERSION  := $(shell git describe --tags --abbrev=1 --always --dirty=-dev)
+LDFLAGS  := -X main.version=${VERSION} -s
 CFLAGS   := --ldflags '${LDFLAGS}' -o $(BIN)/$(TARGET)
 TIMEOUT  := 5
 
