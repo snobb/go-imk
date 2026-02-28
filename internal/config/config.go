@@ -99,8 +99,18 @@ func (c *Config) ParseCmdArgs() error {
 		return fmt.Errorf("at least one command must be specified")
 	}
 
+	for _, cmd := range c.Commands {
+		if cmd == "" {
+			return fmt.Errorf("commands cannot be blank")
+		}
+	}
+
+	if c.RateLimitInterval == 0 {
+		c.RateLimitInterval = defaultRateLimitInterval
+	}
+
 	if c.OneRun && len(c.Commands) > 1 {
-		return fmt.Errorf("secondary commands is not supported with -o flag")
+		return fmt.Errorf("secondary commands is not supported with -n/--once) flag")
 	}
 
 	c.Files = pflag.Args()

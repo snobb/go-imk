@@ -108,6 +108,8 @@ func (c *Command) Execute(ctx context.Context) error {
 	pgid, err := syscall.Getpgid(c.cmd.Process.Pid)
 	if err == nil && pgid > 0 {
 		c.pgid = pgid
+	} else {
+		c.pgid = c.cmd.Process.Pid
 	}
 
 	if err := c.cmd.Wait(); err != nil {
