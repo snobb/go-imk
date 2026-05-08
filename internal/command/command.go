@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -28,11 +27,12 @@ type Command struct {
 
 	TearDownTimeout time.Duration
 
-	cmd *exec.Cmd
-	out io.Writer
-
-	wg   sync.WaitGroup
+	cmd  *exec.Cmd
 	pgid int
+	out  io.Writer
+
+	exitChan   chan struct{}
+	cancelFunc context.CancelFunc
 }
 
 func NewCommand(command string) *Command {
@@ -72,14 +72,19 @@ func (c *Command) WithShell() *Command {
 }
 
 func (c *Command) Execute(ctx context.Context) error {
-	c.Kill()
-	c.wg.Wait()
-
-	if c.TearDownTimeout > 0 {
-		var timeoutCancel context.CancelFunc
-		ctx, timeoutCancel = context.WithTimeout(ctx, c.TearDownTimeout)
-		defer timeoutCancel()
+	if c.cancelFunc != nil {
+		c.cancelFunc()
+		<-c.exitChan
 	}
+
+	c.exitChan = make(chan struct{})
+
+	ctx, c.cancelFunc = c.cancelContext(ctx)
+	defer func() {
+		c.cancelFunc()
+		c.cancelFunc = nil
+		close(c.exitChan) // broadcast the command has exited.
+	}()
 
 	//nolint:gosec // G204 - need to run the command.
 	c.cmd = exec.CommandContext(ctx, c.Command, c.Args...)
@@ -92,25 +97,11 @@ func (c *Command) Execute(ctx context.Context) error {
 		Pgid:    0, // make child process owner of the group
 	}
 
-	go func() {
-		<-ctx.Done()
-		c.Kill() // handle context cancellation.
-	}()
-
-	c.wg.Add(1)
-	defer c.wg.Done()
-
 	if err := c.cmd.Start(); err != nil {
 		return err
 	}
 
-	// Record PGID once, while we know the process exists
-	pgid, err := syscall.Getpgid(c.cmd.Process.Pid)
-	if err == nil && pgid > 0 {
-		c.pgid = pgid
-	} else {
-		c.pgid = c.cmd.Process.Pid
-	}
+	c.pgid = c.cmd.Process.Pid
 
 	if err := c.cmd.Wait(); err != nil {
 		status, err := exitInfo(err)
@@ -140,27 +131,21 @@ func (c *Command) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (c *Command) Kill() {
-	if c.cmd == nil || c.pgid == 0 {
-		return
-	}
-
-	selfPGID, _ := syscall.Getpgid(0)
-	if selfPGID == c.pgid {
-		logger.Shout("refusing to commit suicide - attempting to kill own process group")
-		return
-	}
-
-	_ = syscall.Kill(-c.pgid, syscall.SIGTERM)
-}
-
 func (c *Command) String() string {
 	return c.Command + " " + strings.Join(c.Args, " ")
 }
 
+func (c *Command) cancelContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if c.TearDownTimeout > 0 {
+		return context.WithTimeout(ctx, c.TearDownTimeout)
+	}
+
+	return context.WithCancel(ctx)
+}
+
 func exitInfo(err error) (int, error) {
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
+	exitErr, ok := errors.AsType[*exec.ExitError](err)
+	if !ok {
 		return StatusError, fmt.Errorf("unexpected error > %w", err) // other error
 	}
 
@@ -174,7 +159,7 @@ func exitInfo(err error) (int, error) {
 	}
 
 	switch status.Signal() {
-	case syscall.SIGTERM, syscall.SIGKILL:
+	case syscall.SIGKILL:
 		return StatusKill, nil // normal kill
 	default:
 		logger.Shoutf("unexpected signal [%d]", status.Signal())
