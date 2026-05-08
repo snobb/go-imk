@@ -44,9 +44,9 @@ func (f *FileWatcher) Watch(ctx context.Context) (chan *Event, error) {
 				return
 
 			case event := <-watcher.Events:
-				events <- &Event{
-					Op:   event.Op.String(),
-					Path: event.Name,
+				select {
+				case events <- &Event{Op: event.Op.String(), Path: event.Name}:
+				default: // drop events if there is already one waiting.
 				}
 
 			case err := <-watcher.Errors:
