@@ -34,21 +34,9 @@ func main() {
 }
 
 func run(cfg *config.Config) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	defer cancel()
-
-	go func() {
-		osSignalCh := make(chan os.Signal, 1)
-		signal.Notify(osSignalCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-
-		select {
-		case <-ctx.Done():
-			return
-		case sig := <-osSignalCh:
-			logger.Shoutf("received sys signal %s", sig.String())
-			cancel()
-		}
-	}()
 
 	logger.Shoutf("start monitoring: %s", cfg)
 
