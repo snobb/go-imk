@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -26,13 +27,16 @@ type Command struct {
 	Args    []string
 
 	TearDownTimeout time.Duration
+	out             io.Writer
 
-	cmd  *exec.Cmd
-	pgid int
-	out  io.Writer
+	mu     sync.Mutex
+	active *activeExecution
+}
 
-	exitChan   chan struct{}
+type activeExecution struct {
+	ctx        context.Context
 	cancelFunc context.CancelFunc
+	doneCh     chan struct{}
 }
 
 func NewCommand(command string) *Command {
@@ -72,63 +76,37 @@ func (c *Command) WithShell() *Command {
 }
 
 func (c *Command) Execute(ctx context.Context) error {
-	if c.cancelFunc != nil {
-		c.cancelFunc()
-		<-c.exitChan
+	// Atomically swap out or cancel all running instances.
+	// (there shouldn't be more than one though).
+	c.mu.Lock()
+	for c.active != nil {
+		c.active.cancelFunc()
+		doneCh := c.active.doneCh
+		c.mu.Unlock() // unlock while waiting.
+		<-doneCh
+		c.mu.Lock()
 	}
 
-	c.exitChan = make(chan struct{})
+	cancelCtx, cancelFunc := c.cancelContext(ctx)
+	worker := &activeExecution{
+		ctx:        cancelCtx,
+		cancelFunc: cancelFunc,
+		doneCh:     make(chan struct{}),
+	}
+	c.active = worker
+	c.mu.Unlock()
 
-	ctx, c.cancelFunc = c.cancelContext(ctx)
 	defer func() {
-		c.cancelFunc()
-		c.cancelFunc = nil
-		close(c.exitChan) // broadcast the command has exited.
+		worker.cancelFunc()
+		c.mu.Lock()
+		if c.active == worker {
+			c.active = nil // only clear the pointer if it's still this instance.
+		}
+		c.mu.Unlock()
+		close(worker.doneCh)
 	}()
 
-	//nolint:gosec // G204 - need to run the command.
-	c.cmd = exec.CommandContext(ctx, c.Command, c.Args...)
-	c.cmd.Stderr = os.Stderr
-	c.cmd.Stdout = c.out
-
-	// Run command in its own process group.
-	c.cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0, // make child process owner of the group
-	}
-
-	if err := c.cmd.Start(); err != nil {
-		return err
-	}
-
-	c.pgid = c.cmd.Process.Pid
-
-	if err := c.cmd.Wait(); err != nil {
-		status, err := exitInfo(err)
-		if err != nil {
-			if status == StatusKill {
-				logger.Shoutf("process killed by signal [%s %s]: %s",
-					c.Command, strings.Join(c.Args, " "), err)
-				return err
-			}
-
-			if status == StatusError {
-				logger.Shoutf("error [%s %s]: %s", c.Command, strings.Join(c.Args, " "), err)
-				return err
-			}
-		}
-
-		if status == StatusKill {
-			logger.Shoutf("process terminated [%s %s]",
-				c.Command, strings.Join(c.Args, " "))
-			return nil
-		}
-	}
-
-	logger.Shoutf("exit code %d [%s %s]", c.cmd.ProcessState.ExitCode(),
-		c.Command, strings.Join(c.Args, " "))
-
-	return nil
+	return worker.run(cancelCtx, c)
 }
 
 func (c *Command) String() string {
@@ -141,6 +119,60 @@ func (c *Command) cancelContext(ctx context.Context) (context.Context, context.C
 	}
 
 	return context.WithCancel(ctx)
+}
+
+func (ae *activeExecution) run(ctx context.Context, cfg *Command) error {
+	cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...) //nolint:gosec
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = cfg.out
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+
+	cmd.Cancel = func() error {
+		if cmd.Process != nil {
+			return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
+		return nil
+	}
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			logger.Shoutf("process timed out [%s]", cfg)
+			return ctx.Err()
+		}
+
+		if errors.Is(ctx.Err(), context.Canceled) {
+			logger.Shoutf("process terminated [%s]", cfg)
+			return ctx.Err()
+		}
+
+		status, err := exitInfo(err)
+		if err != nil {
+			if status == StatusKill {
+				logger.Shoutf("process killed by signal [%s]: %s", cfg, err)
+				return err
+			}
+			if status == StatusError {
+				logger.Shoutf("error [%s]: %s", cfg, err)
+				return err
+			}
+		}
+
+		if status == StatusKill {
+			logger.Shoutf("process terminated [%s]", cfg)
+			return nil
+		}
+	}
+
+	logger.Shoutf("exit code %d [%s]", cmd.ProcessState.ExitCode(), cfg)
+	return nil
 }
 
 func exitInfo(err error) (int, error) {
