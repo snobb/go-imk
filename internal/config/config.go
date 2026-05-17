@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -99,10 +100,8 @@ func (c *Config) ParseCmdArgs() error {
 		return fmt.Errorf("at least one command must be specified")
 	}
 
-	for _, cmd := range c.Commands {
-		if cmd == "" {
-			return fmt.Errorf("commands cannot be blank")
-		}
+	if slices.Contains(c.Commands, "") {
+		return fmt.Errorf("commands cannot be blank")
 	}
 
 	if c.RateLimitInterval == 0 {
@@ -177,8 +176,10 @@ func (c *Config) EnrichFiles() error {
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 	pflag.PrintDefaults()
-	fmt.Println("\nIf multiple commands are specified, the first runs in the foreground as the primary " +
-		"command.\nSubsequent commands run in the background and may be long-running.")
+	fmt.Println(
+		"\nIf multiple commands are provided, all commands run in the background. " +
+			"The first command must\ncomplete before the remaining commands begin. After " +
+			"the first command finishes, all remaining\ncommands start simultaneously and run in parallel.")
 	fmt.Println("\nExamples:")
 	fmt.Println("  imk -rc 'go build ./...' src/")
 	fmt.Println("  imk -rc 'go build ./...' src/ -k 5m")
