@@ -113,5 +113,6 @@ func run(cfg *config.Config) error {
 }
 
 func isInterestingOp(op string) bool {
-	return op == "CREATE" || op == "RENAME" || op == "WRITE"
+	return op == fsops.OpCreate || op == fsops.OpWrite ||
+		op == fsops.OpRename || op == fsops.OpRemove
 }

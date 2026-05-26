@@ -9,6 +9,13 @@ import (
 	"github.com/snobb/go-imk/internal/logger"
 )
 
+const (
+	OpCreate = "CREATE"
+	OpWrite  = "WRITE"
+	OpRename = "RENAME"
+	OpRemove = "REMOVE"
+)
+
 type FileWatcher struct {
 	files []string
 }
