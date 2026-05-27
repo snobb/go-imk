@@ -3,6 +3,7 @@ package fsops
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/fsnotify/fsnotify"
 
@@ -51,6 +52,8 @@ func (f *FileWatcher) Watch(ctx context.Context) (chan *Event, error) {
 				return
 
 			case event := <-watcher.Events:
+				updateWatcher(watcher, &event)
+
 				select {
 				case events <- &Event{Op: event.Op.String(), Path: event.Name}:
 				default: // drop events if there is already one waiting.
@@ -64,4 +67,31 @@ func (f *FileWatcher) Watch(ctx context.Context) (chan *Event, error) {
 	}()
 
 	return events, nil
+}
+
+func updateWatcher(watcher *fsnotify.Watcher, event *fsnotify.Event) {
+	switch event.Op {
+	case fsnotify.Create:
+		fileInfo, err := os.Stat(event.Name)
+		if err != nil || !fileInfo.IsDir() {
+			return // ignore if not a folder.
+		}
+
+		if err := watcher.Add(event.Name); err != nil {
+			logger.Shoutf("unable to watch file %s > %s", event.Name, err.Error())
+		}
+
+	case fsnotify.Remove, fsnotify.Rename:
+		// The `fsnotify` library emits two events when a file is created:
+		//
+		// Event{Op: Rename, Name: "/tmp/file"}
+		// Event{Op: Create, Name: "/tmp/rename", RenamedFrom: "/tmp/file"}
+		//
+		// So here rename returns the old name and create returns the new name, hence removing
+		// here and let CREATE event handle adding new watcher.
+		//
+		// Since we cannot check at this point if the renamed/removed item was a folder, do best
+		// effort remove and ignore errors if any.
+		_ = watcher.Remove(event.Name)
+	}
 }
