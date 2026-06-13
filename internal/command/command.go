@@ -133,6 +133,18 @@ func (ae *activeExecution) run(ctx context.Context, cfg *Command) error {
 
 	cmd.Cancel = func() error {
 		if cmd.Process != nil {
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ae.doneCh:
+			return nil // SIGTERM done it.
+		case <-time.After(time.Second): // Wait for 1 sec before hard killing.
+		}
+
+		if cmd.Process != nil {
 			return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
 		return nil
