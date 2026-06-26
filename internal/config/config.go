@@ -174,7 +174,7 @@ func (c *Config) EnrichFiles() error {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+	fmt.Printf("Usage: %s [flags] <files/dirs to watch>\n", os.Args[0])
 	pflag.PrintDefaults()
 	fmt.Println(
 		"\nIf multiple commands are provided, all commands run in the background. " +
