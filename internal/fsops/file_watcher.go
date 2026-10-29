@@ -18,15 +18,22 @@ const (
 )
 
 type FileWatcher struct {
-	files []string
+	files             []string
+	triggerEveryEvent bool
 }
 
-func NewFileWatcher(files []string) *FileWatcher {
-	return &FileWatcher{
-		files: files,
+// NewFileWatcher creates a new FileWatcher instance with the provided files and options.
+func NewFileWatcher(files []string, triggerEveryEvent bool) *FileWatcher {
+	fw := &FileWatcher{
+		files:             files,
+		triggerEveryEvent: triggerEveryEvent,
 	}
+
+	return fw
 }
 
+// Watch starts watching the specified files for changes and returns a channel that emits events
+// when changes occur.
 func (f *FileWatcher) Watch(ctx context.Context) (chan *Event, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -54,9 +61,13 @@ func (f *FileWatcher) Watch(ctx context.Context) (chan *Event, error) {
 			case event := <-watcher.Events:
 				updateWatcher(watcher, &event)
 
-				select {
-				case events <- &Event{Op: event.Op.String(), Path: event.Name}:
-				default: // drop events if there is already one waiting.
+				if !f.triggerEveryEvent {
+					events <- &Event{Op: event.Op.String(), Path: event.Name}
+				} else {
+					select {
+					case events <- &Event{Op: event.Op.String(), Path: event.Name}:
+					default: // drop events if there is already one waiting.
+					}
 				}
 
 			case err := <-watcher.Errors:

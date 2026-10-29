@@ -75,14 +75,17 @@ func run(cfg *config.Config) error {
 		}
 	}
 
-	// often there is a burst of events that comes at about the same time. Eg. IDE saves file and
-	// then runs formatting tool, which results in 2 writes and thus 2 events.
-	rlimit := ratelimit.NewTokenBucket(
-		cfg.RateLimitBucketCapacity,
-		cfg.RateLimitBucketCapacity,
-		cfg.RateLimitInterval)
+	var rlimit *ratelimit.TokenBucket
 
-	watcher := fsops.NewFileWatcher(cfg.Files)
+	if !cfg.TriggerEveryEvent {
+		// then runs formatting tool, which results in 2 writes and thus 2 events.
+		rlimit = ratelimit.NewTokenBucket(
+			cfg.RateLimitBucketCapacity,
+			cfg.RateLimitBucketCapacity,
+			cfg.RateLimitInterval)
+	}
+
+	watcher := fsops.NewFileWatcher(cfg.Files, cfg.TriggerEveryEvent)
 
 	events, err := watcher.Watch(ctx)
 	if err != nil {
@@ -94,8 +97,10 @@ func run(cfg *config.Config) error {
 			continue
 		}
 
-		if err := rlimit.Lease(1); err != nil {
-			continue // ignore event per rate limit
+		if !cfg.TriggerEveryEvent {
+			if err := rlimit.Lease(1); err != nil {
+				continue // ignore event per rate limit
+			}
 		}
 
 		logger.Shoutf("%s :: %s", event.Op, event.Path)

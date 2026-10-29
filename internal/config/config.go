@@ -41,6 +41,8 @@ type Config struct {
 	RateLimitBucketCapacity int
 	RateLimitInterval       time.Duration
 
+	TriggerEveryEvent bool
+
 	version    string
 	fileWalker fsops.Walker
 }
@@ -75,6 +77,9 @@ func (c *Config) ParseCmdArgs() error {
 
 	pflag.BoolVarP(&c.WrapShell, "wrapshell", "w", false,
 		"wrap command with shell (default - false).")
+
+	pflag.BoolVarP(&c.TriggerEveryEvent, "trigger-every-event", "e", false,
+		"trigger command on every event, rather than just the first one.")
 
 	pflag.DurationVarP(&c.TearDownTimeout, "timeout", "k", 0,
 		"timeout after which to kill the command subprocess (default - do not kill).")
