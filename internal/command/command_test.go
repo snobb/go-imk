@@ -3,6 +3,7 @@ package command
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"runtime"
 	"testing"
@@ -132,7 +133,7 @@ func TestCommand_WithOutput(t *testing.T) {
 			cmd := NewCommand(tt.command).
 				WithOutput(&buf)
 
-			err := cmd.Execute(context.Background())
+			err := cmd.Execute(context.Background(), nil)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.output, buf.String())
 		})
@@ -168,13 +169,13 @@ func TestCommand_String(t *testing.T) {
 func TestCommand_Execute(t *testing.T) {
 	t.Run("successful command", func(t *testing.T) {
 		cmd := NewCommand("true")
-		err := cmd.Execute(context.Background())
+		err := cmd.Execute(context.Background(), &CommandRequestInfo{FilePath: "foobar"})
 		assert.NoError(t, err)
 	})
 
 	t.Run("nonexistent command", func(t *testing.T) {
 		cmd := NewCommand("nonexistent_cmd_xyzzy")
-		err := cmd.Execute(context.Background())
+		err := cmd.Execute(context.Background(), &CommandRequestInfo{FilePath: "foobar"})
 		assert.Error(t, err)
 	})
 
@@ -183,7 +184,7 @@ func TestCommand_Execute(t *testing.T) {
 		cmd := NewCommand("echo hello").
 			WithShell().
 			WithOutput(&buf)
-		err := cmd.Execute(context.Background())
+		err := cmd.Execute(context.Background(), &CommandRequestInfo{FilePath: "foobar"})
 		assert.NoError(t, err)
 		assert.Equal(t, "hello\n", buf.String())
 	})
@@ -193,28 +194,28 @@ func TestCommand_Execute(t *testing.T) {
 		cancel()
 
 		cmd := NewCommand("sleep 10")
-		err := cmd.Execute(ctx)
+		err := cmd.Execute(ctx, &CommandRequestInfo{FilePath: "foobar"})
 		assert.Equal(t, context.Canceled, err)
 	})
 
 	t.Run("timeout", func(t *testing.T) {
 		cmd := NewCommand("sleep 10").
 			WithTimeout(30 * time.Millisecond)
-		err := cmd.Execute(context.Background())
+		err := cmd.Execute(context.Background(), &CommandRequestInfo{FilePath: "foobar"})
 		assert.Equal(t, context.DeadlineExceeded, err)
 	})
 
 	t.Run("process killed by signal", func(t *testing.T) {
 		cmd := NewCommand("kill -KILL $$").
 			WithShell()
-		err := cmd.Execute(context.Background())
+		err := cmd.Execute(context.Background(), &CommandRequestInfo{FilePath: "foobar"})
 		assert.NoError(t, err)
 	})
 
 	t.Run("sequential restart after completion", func(t *testing.T) {
 		cmd := NewCommand("true")
-		assert.NoError(t, cmd.Execute(context.Background()))
-		assert.NoError(t, cmd.Execute(context.Background()))
+		assert.NoError(t, cmd.Execute(context.Background(), &CommandRequestInfo{FilePath: "foobar"}))
+		assert.NoError(t, cmd.Execute(context.Background(), &CommandRequestInfo{FilePath: "foobar"}))
 	})
 
 	t.Run("concurrent execute cancels previous", func(t *testing.T) {
@@ -225,7 +226,7 @@ func TestCommand_Execute(t *testing.T) {
 		errCh := make(chan error, 2)
 
 		go func() {
-			errCh <- cmd.Execute(ctx)
+			errCh <- cmd.Execute(ctx, &CommandRequestInfo{FilePath: "foobar"})
 		}()
 
 		cmd.mu.Lock()
@@ -237,7 +238,7 @@ func TestCommand_Execute(t *testing.T) {
 		cmd.mu.Unlock()
 
 		go func() {
-			errCh <- cmd.Execute(ctx)
+			errCh <- cmd.Execute(ctx, &CommandRequestInfo{FilePath: "foobar"})
 		}()
 
 		for range 2 {
@@ -251,14 +252,18 @@ func TestCommand_Execute(t *testing.T) {
 
 		for range 3 {
 			go func() {
-				errCh <- cmd.Execute(context.Background())
+				errCh <- cmd.Execute(context.Background(), &CommandRequestInfo{FilePath: "foobar"})
 			}()
 		}
 
 		// Concurrent calls cancel each other; some may succeed, some may be
 		// canceled. The important thing is no deadlock or panic.
 		for range 3 {
-			<-errCh
+			err := <-errCh
+			if err == nil || errors.Is(err, context.Canceled) {
+				continue
+			}
+			assert.NoError(t, err)
 		}
 	})
 }
@@ -271,7 +276,7 @@ func TestNewCommandRunner(t *testing.T) {
 			nil,
 			false,
 		)
-		err := runner.Run(context.Background())
+		err := runner.Run(context.Background(), nil)
 		assert.NoError(t, err)
 		<-runner.done
 	})
@@ -283,7 +288,7 @@ func TestNewCommandRunner(t *testing.T) {
 			nil,
 			true,
 		)
-		err := runner.Run(context.Background())
+		err := runner.Run(context.Background(), nil)
 		assert.NoError(t, err)
 		<-runner.done
 	})
@@ -301,7 +306,7 @@ func TestCommandRunner_Run(t *testing.T) {
 			true,
 		)
 
-		err := runner.Run(context.Background())
+		err := runner.Run(context.Background(), nil)
 		assert.NoError(t, err)
 		<-runner.done
 
@@ -320,7 +325,7 @@ func TestCommandRunner_Run(t *testing.T) {
 			true,
 		)
 
-		err := runner.Run(context.Background())
+		err := runner.Run(context.Background(), nil)
 		assert.NoError(t, err)
 		<-runner.done
 
@@ -339,11 +344,11 @@ func TestCommandRunner_Run(t *testing.T) {
 			true,
 		)
 
-		err := runner.Run(context.Background())
+		err := runner.Run(context.Background(), nil)
 		assert.NoError(t, err)
 
 		doneCh := runner.done
-		err = runner.Run(context.Background())
+		err = runner.Run(context.Background(), nil)
 		assert.NoError(t, err)
 
 		<-doneCh
@@ -362,7 +367,7 @@ func TestCommandRunner_Run(t *testing.T) {
 		)
 
 		for range 5 {
-			err := runner.Run(context.Background())
+			err := runner.Run(context.Background(), nil)
 			assert.NoError(t, err)
 			<-runner.done
 		}

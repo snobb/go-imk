@@ -1,4 +1,4 @@
-// Package command provides commands execution interface..
+// Package command provides commands execution interface.
 package command
 
 import (
@@ -20,8 +20,12 @@ const (
 	StatusExit = iota
 	StatusKill
 	StatusError
+
+	envVarFileName  = "IMK_FILENAME"
+	envVarOperation = "IMK_OPERATION"
 )
 
+// Command represents a command to be executed with its arguments and configuration.
 type Command struct {
 	Command string
 	Args    []string
@@ -39,6 +43,7 @@ type activeExecution struct {
 	doneCh     chan struct{}
 }
 
+// NewCommand creates a new Command instance from the provided command string.
 func NewCommand(command string) *Command {
 	if command == "" {
 		return nil
@@ -58,16 +63,19 @@ func NewCommand(command string) *Command {
 	return cmd
 }
 
+// WithTimeout sets the timeout for the command execution.
 func (c *Command) WithTimeout(timeout time.Duration) *Command {
 	c.TearDownTimeout = timeout
 	return c
 }
 
+// WithOutput sets the output writer for the command execution.
 func (c *Command) WithOutput(out io.Writer) *Command {
 	c.out = out
 	return c
 }
 
+// WithShell modifies the command to be executed within a shell context.
 func (c *Command) WithShell() *Command {
 	args := append([]string{c.Command}, c.Args...)
 	c.Args = append([]string{"-c"}, strings.Join(args, " "))
@@ -75,7 +83,8 @@ func (c *Command) WithShell() *Command {
 	return c
 }
 
-func (c *Command) Execute(ctx context.Context) error {
+// Execute runs the command with the provided context and request information.
+func (c *Command) Execute(ctx context.Context, reqInfo *CommandRequestInfo) error {
 	// Atomically swap out or cancel all running instances.
 	// (there shouldn't be more than one though).
 	c.mu.Lock()
@@ -106,9 +115,10 @@ func (c *Command) Execute(ctx context.Context) error {
 		close(worker.doneCh)
 	}()
 
-	return worker.run(cancelCtx, c)
+	return worker.run(cancelCtx, c, reqInfo)
 }
 
+// String returns a string representation of the command and its arguments.
 func (c *Command) String() string {
 	return c.Command + " " + strings.Join(c.Args, " ")
 }
@@ -121,10 +131,16 @@ func (c *Command) cancelContext(ctx context.Context) (context.Context, context.C
 	return context.WithCancel(ctx)
 }
 
-func (ae *activeExecution) run(ctx context.Context, cfg *Command) error {
+func (ae *activeExecution) run(ctx context.Context, cfg *Command, reqInfo *CommandRequestInfo) error {
 	cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...) //nolint:gosec
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = cfg.out
+
+	if reqInfo != nil {
+		cmd.Env = append(os.Environ(),
+			fmt.Sprintf("%s=%s", envVarFileName, reqInfo.FilePath),
+			fmt.Sprintf("%s=%s", envVarOperation, reqInfo.Operation))
+	}
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,

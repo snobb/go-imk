@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+// CommandRequestInfo represents information passed to the child process.
+type CommandRequestInfo struct {
+	FilePath  string
+	Operation string
+}
+
+// CommandRunner manages the execution of a sequence of commands, ensuring that only one command is
+// active at a time and handling cancellation and teardown.
 type CommandRunner struct {
 	commands []*Command
 
@@ -16,6 +24,7 @@ type CommandRunner struct {
 	mu              sync.Mutex
 }
 
+// NewCommandRunner creates a new CommandRunner instance with the provided commands, teardown timeout,
 func NewCommandRunner(
 	commands []string,
 	tearDownTimeout time.Duration,
@@ -57,7 +66,9 @@ func NewCommandRunner(
 // Run the primary command. If the primary command have succeeded, it will execute the secondary
 // command. The command is run in a separate go routine and can be long running. In case it's
 // running, the command is killed and restarted.
-func (cr *CommandRunner) Run(ctx context.Context) error {
+// path can be empty string when the command is run durign the imk startup, but otherwise the
+// changed file/dir should be passed.
+func (cr *CommandRunner) Run(ctx context.Context, reqInfo *CommandRequestInfo) error {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
@@ -80,13 +91,13 @@ func (cr *CommandRunner) Run(ctx context.Context) error {
 
 	go func() {
 		defer close(doneCh)
-		cr.runOnce(cancelCtx)
+		cr.runOnce(cancelCtx, reqInfo)
 	}()
 
 	return nil
 }
 
-func (cr *CommandRunner) runOnce(ctx context.Context) {
+func (cr *CommandRunner) runOnce(ctx context.Context, reqInfo *CommandRequestInfo) {
 	for i, cmd := range cr.commands {
 		select {
 		case <-ctx.Done():
@@ -95,12 +106,12 @@ func (cr *CommandRunner) runOnce(ctx context.Context) {
 		}
 
 		if i == 0 {
-			_ = cmd.Execute(ctx)
+			_ = cmd.Execute(ctx, reqInfo)
 			continue
 		}
 
 		go func() {
-			_ = cmd.Execute(ctx)
+			_ = cmd.Execute(ctx, reqInfo)
 		}()
 	}
 }

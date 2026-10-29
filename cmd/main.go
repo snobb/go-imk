@@ -70,7 +70,7 @@ func run(cfg *config.Config) error {
 	)
 
 	if cfg.RunNow {
-		if err := commandRunner.Run(ctx); err != nil {
+		if err := commandRunner.Run(ctx, nil); err != nil {
 			return err
 		}
 	}
@@ -100,7 +100,12 @@ func run(cfg *config.Config) error {
 
 		logger.Shoutf("%s :: %s", event.Op, event.Path)
 
-		if err := commandRunner.Run(ctx); err != nil {
+		req := command.CommandRequestInfo{
+			FilePath:  event.Path,
+			Operation: event.Op,
+		}
+
+		if err := commandRunner.Run(ctx, &req); err != nil {
 			return err
 		}
 
